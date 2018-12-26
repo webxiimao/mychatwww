@@ -1,0 +1,20 @@
+#components-form-demo-normal-login .register-form {
+  max-width: 300px;
+}
+#components-form-demo-normal-login .register-form-forgot {
+  float: right;
+}
+#components-form-demo-normal-login .register-form-button {
+  width: 100%;
+}
+
+
+.register-form{
+  .login-submit{
+    margin-bottom: 18px;
+  }
+
+  .err-msg {
+    margin-bottom: 10px;
+  }
+}

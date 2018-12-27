@@ -47,9 +47,11 @@ class Home extends Component{
 
 
     render(){
+        const {userInfo} = this.state
         return (
             <div className="chat-room">
-                <ChatRoom userInfo={this.state.userInfo}></ChatRoom>
+                {JSON.stringify(userInfo)!="{}"?<ChatRoom userInfo={this.state.userInfo}></ChatRoom>:""}
+                {/*<ChatRoom userInfo={userInfo}></ChatRoom>*/}
             </div>
         )
     }

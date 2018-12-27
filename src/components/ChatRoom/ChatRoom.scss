@@ -122,15 +122,20 @@
       bottom: 181px;
       width: 100%;
       padding: 0 19px;
-      .msg-box{
+      .msg{
         margin-top: 16px;
-        &.rec-msg-box{
-          float: right;
-          .panel-avater{
+        .msg-box{
+          //margin-top: 16px;
+          padding: 12px 0;
+          &.rec-msg-box{
             float: right;
+            .panel-avater{
+              float: right;
+            }
           }
         }
       }
+
     }
     .chatarea-fd{
       position: absolute;

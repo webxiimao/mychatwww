@@ -6,12 +6,18 @@ import {post,get,getUrl} from "server/http";
 import api from "server/api"
 import cookie from "utils/cookie"
 import Config from "config/config"
+import {getLocalData, addLocalData} from "utils/localstorage";
 
+import io from 'socket.io-client';
+
+// var socket = require('socket.io-client')('http://127.0.0.1:5000/');
+
+/*第三方组件*/
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import 'react-perfect-scrollbar/dist/css/styles.css';
 
 
-
+/*静态资源*/
 import peopleImg from "../../images/650.jpg"
 
 
@@ -21,32 +27,107 @@ class ChatRoom extends Component{
         this.contentEditable = React.createRef();
         this.state = {
             keyName:"",
+            nowUserName:"",//现在的时间
+            nowChatUser:{},//目前正在聊天的对象
             keyNameTimer:null,//防抖计时器
             isnotSearch:true,
             /*定义返回格式*/
             html:"",
-            panels: {
-                'chatroom': {
-                    chatInfo: {
-                        avater: peopleImg,
-                        nickname: "聊天室",
-                        lastTime: "17:29",
-                        lastMsg: "hello,world"
-                    },
-                    chatDetails: []
-                }
-            },
+            panels: [],
             searchUserList:[
 
             ]
         }
     }
 
-    componentDidMount(){
+    componentWillMount(){
+        let self = this
         /*reload localstorage*/
-
+        self.getPanelData()
 
         /*socket register*/
+    }
+
+    componentDidMount(){
+        let self = this
+        self.registerSocket()
+    }
+
+    /*注册websocket*/
+    registerSocket(){
+        let self = this
+        const socket = io('http://127.0.0.1:5000');
+        socket.on('connect',res=>{
+            console.log(self.props.userInfo);
+            socket.emit('server_connent',self.props.userInfo)
+        })
+
+        socket.on('client_connect',res=>{
+            console.log(res.data);
+        })
+    }
+
+
+    /*return chatroom*/
+    createRoom(username,avater,nickname){
+        let self = this
+        return {
+            name:username,
+            chatInfo: {
+                avater: avater,
+                nickname: nickname,
+                lastTime: "",
+                lastMsg: ""
+            },
+            chatDetails: [
+                // {des:4,avater:peopleImg,src:5,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
+            ]
+        }
+    }
+
+
+    /*获取聊天记录数据*/
+    getPanelData(){
+        let self = this,
+            panels = getLocalData();
+        /*如果panel为空对象，添加聊天室房间*/
+        if(panels.length<=0){
+            // panels['chatroom'] = self.createRoom('chatroom',peopleImg,"聊天室")
+            panels.push(self.createRoom('chatroom',peopleImg,"聊天室"))
+        }
+
+        self.setState({
+            panels,
+        },()=>{
+            self.nowUser("chatroom")
+        })
+
+
+    }
+
+    nowUser(uname){
+        let self = this
+        let npanel;
+        self.state.panels.forEach(panel=>{
+            if(panel.name == uname){
+                npanel = panel
+                return
+            }
+        })
+        self.setState({
+            nowUserName:uname,
+            nowChatUser:npanel
+        })
     }
 
     onChangeKeyName(e){
@@ -65,6 +146,7 @@ class ChatRoom extends Component{
                 self.setState({
                     isnotSearch:false
                 })
+                /*设置防抖*/
                 let timer = setTimeout(()=>{
                     get(url,{
                         keyName:self.state.keyName
@@ -124,13 +206,53 @@ class ChatRoom extends Component{
         self.contentEditable.current.focus()
     }
 
-    handleSearchListClick(index){
+    panelsHasUser(uname){
         let self = this
+        let index = self.state.panels.findIndex(panel=>{
+            return panel.name == uname
+        })
+
+        return index
+
+    }
+
+    handleSearchListClick(user,index){
+        let self = this
+        /*清空搜索信息*/
         self.setState({
             keyName: "",
             isnotSearch:true
         })
 
+        /*用户移至聊天菜单*/
+        let panels = JSON.parse(JSON.stringify(self.state.panels))
+        if(self.panelsHasUser(user.username)!==-1){
+            /*聊天框内已有用户*/
+            let pIndex = self.panelsHasUser(user.username)//获取panels该用户的index
+            panels.unshift(panels.splice(pIndex,1)[0])//移至开头
+        }else{
+            /*聊天框内没有用户*/
+            panels.splice(0,0,self.createRoom(user.username, user.avater, user.nickname))
+
+        }
+
+
+
+        self.setState({
+            panels,
+        },()=>{
+            self.nowUser(user.username)
+        })
+    }
+
+    handlePanelsListClick(panel, index){
+        let self = this
+
+        self.nowUser(panel.name)
+        //当前聊天的用户
+        self.setState({
+            nowChatUser:panel
+        })
     }
 
     render(){
@@ -138,6 +260,10 @@ class ChatRoom extends Component{
         const { panels } = this.state
         const { isnotSearch } = this.state
         const { searchUserList } = this.state
+        const { nowUserName } = this.state
+        const { nowChatUser } = this.state
+        let self = this
+
 
         return (
             <div className="chat-main">
@@ -177,29 +303,29 @@ class ChatRoom extends Component{
                         </div>
                         {/*判断是否在搜索状态*/}
                         {isnotSearch?<div className="panel-area">
-                            {Object.keys(panels).map((panel,index)=>(
-                                <div className={"person active"} key={index}>
+                            {panels.map((panel,index)=>(
+                                <div onClick={()=>this.handlePanelsListClick(panel,index)} className={nowUserName == panel.name?'person active':'person'} key={index}>
                                     <div className="panel-avater">
-                                        <img src={panels[panel].chatInfo.avater} alt=""/>
+                                        <img src={panel.chatInfo.avater} alt=""/>
                                     </div>
                                     <div className="person-content clearfix">
                                         <div className={'clearfix person-info'}>
                                             <div className="person-name">
-                                                {panels[panel].chatInfo.nickname}
+                                                {panel.chatInfo.nickname}
                                             </div>
                                             <div className="person-time">
-                                                {panels[panel].chatInfo.lastTime}
+                                                {panel.chatInfo.lastTime}
                                             </div>
                                         </div>
                                         <div className="person-msg">
-                                            {panels[panel].chatInfo.lastMsg}
+                                            {panel.chatInfo.lastMsg}
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>:<div className="panel-area">
                             {searchUserList.map((user,index)=>(
-                                <div onClick={()=>this.handleSearchListClick(index)} className={'person search-people'} key={index}>
+                                <div onClick={()=>this.handleSearchListClick(user,index)} className={'person search-people'} key={index}>
                                     <div className="panel-avater">
                                         <img src={user.avater} alt=""/>
                                     </div>
@@ -227,26 +353,44 @@ class ChatRoom extends Component{
                     </div>
                     {/*收件区域*/}
                     <div className="chatarea-main">
-                        <div className="send-msg-box msg-box clearfix">
-                            <div className="panel-avater">
-                                <img src={this.props.userInfo.avater} alt=""/>
-                            </div>
-                            {/*</Tooltip>*/}
-                            <div className="right-msg panel-msg">
-                                你好！你好！
-                            </div>
-                        </div>
+                        <PerfectScrollbar>
+                            {(nowChatUser&&nowChatUser.chatDetails)?nowChatUser.chatDetails.map((record,index)=>{
+                                if(record.des == self.props.userInfo.id){
+                                    return (
+                                        <div key={index} className="clearfix msg">
+                                            <div className="send-msg-box msg-box clearfix">
+                                                <div className="panel-avater">
+                                                    <img src={record.avater} alt=""/>
+                                                </div>
+                                                {/*</Tooltip>*/}
+                                                <div className="right-msg panel-msg">
+                                                    {record.msg}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                }else{
+                                    return(
+                                        <div key={index} className="clearfix msg">
+                                            <div className="rec-msg-box msg-box clearfix">
+                                                <div className="panel-avater">
+                                                    <img src={record.avater} alt=""/>
+                                                </div>
+                                                {/*</Tooltip>*/}
+                                                <div className="left-msg panel-msg">
+                                                    {record.msg}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    )
+                                }
+                            }):""}
+                        </PerfectScrollbar>
+
                         {/*靠rec 和 send标识收发消息*/}
-                        <div className="rec-msg-box msg-box clearfix">
-                            <div className="panel-avater">
-                                <img src={this.props.userInfo.avater} alt=""/>
-                            </div>
-                            {/*</Tooltip>*/}
-                            <div className="left-msg panel-msg">
-                                你好！
-                            </div>
-                        </div>
-                        <div className="rec-msg-box msg-box clearfix"></div>
+
+                        {/*<div className="rec-msg-box msg-box clearfix"></div>*/}
                     </div>
                     {/*发送区域*/}
                     <div className="chatarea-fd">

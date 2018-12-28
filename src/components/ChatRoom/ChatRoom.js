@@ -98,7 +98,6 @@ class ChatRoom extends Component{
             })
 
             setTimeout(()=>{
-                console.log(self._scrollRef);
                 self._scrollRef.scrollToBottom()
                 // self._scrollRef.scrollTop = 0
             },200)
@@ -231,11 +230,10 @@ class ChatRoom extends Component{
             {socket} = this.state
 
         self.setState({
-            html:null
+            html:''
         },()=>{
             // debugger
-            /*接口操作*/
-            console.log("send msg");
+            /*socket操作*/
             socket.emit('send msg', data)
         })
     }

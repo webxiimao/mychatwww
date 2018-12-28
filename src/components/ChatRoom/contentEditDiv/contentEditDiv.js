@@ -21,11 +21,24 @@ class ContentEditDiv extends Component{
             dangerouslySetInnerHTML={{__html: this.props.html}}></div>;
     }
     shouldComponentUpdate(nextProps){
-        if(this.props.html==null){
-            return true
-        }
+        // if(this.props.html==""){
+        //     return true
+        // }
         return (nextProps.html !== this.contentedit.current.innerHTML);
+
     }
+
+    componentDidUpdate() {
+        if ( this.props.html !== this.contentedit.current.innerHTML ) {
+           this.contentedit.current.innerHTML = this.props.html;
+        }
+    }
+
+
+    clearHtml(){
+
+    }
+
     emitChange(){
         var html = this.contentedit.current.innerHTML;
         if (this.props.onChange && html !== this.lastHtml) {

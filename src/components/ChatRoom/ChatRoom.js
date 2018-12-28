@@ -8,6 +8,8 @@ import cookie from "utils/cookie"
 import Config from "config/config"
 import {getLocalData, addLocalData} from "utils/localstorage";
 
+
+
 import io from 'socket.io-client';
 
 // var socket = require('socket.io-client')('http://127.0.0.1:5000/');
@@ -16,19 +18,25 @@ import io from 'socket.io-client';
 import PerfectScrollbar from 'react-perfect-scrollbar'
 import 'react-perfect-scrollbar/dist/css/styles.css';
 
+import { Scrollbars } from 'react-custom-scrollbars';
+
 
 /*静态资源*/
 import peopleImg from "../../images/650.jpg"
+import ContentEditDiv from "./contentEditDiv/contentEditDiv";
+
 
 
 class ChatRoom extends Component{
     constructor(props){
         super(props)
-        this.contentEditable = React.createRef();
+        this.contentEditDiv = React.createRef();
+        this._scrollRef = React.createRef()
         this.state = {
             keyName:"",
+            socket:null,//websocket
             nowUserName:"",//现在的时间
-            nowChatUser:{},//目前正在聊天的对象
+            nowChatUserIndex:{},//目前正在聊天的对象
             keyNameTimer:null,//防抖计时器
             isnotSearch:true,
             /*定义返回格式*/
@@ -50,29 +58,62 @@ class ChatRoom extends Component{
 
     componentDidMount(){
         let self = this
-        self.registerSocket()
+        self.registerSockets()
     }
 
     /*注册websocket*/
-    registerSocket(){
+    registerSockets(){
         let self = this
         const socket = io('http://127.0.0.1:5000');
+        self.setState({
+            socket:socket,
+        })
         socket.on('connect',res=>{
-            console.log(self.props.userInfo);
             socket.emit('server_connent',self.props.userInfo)
         })
 
         socket.on('client_connect',res=>{
             console.log(res.data);
         })
+
+        socket.on('client_get_msg',res=>{
+            let { panels } = self.state
+            let { nowChatUser } = self.state
+            let index = panels.findIndex(panel=>{
+                if(res.des == self.props.userInfo.id){
+                    return panel.id == res.src
+                }
+                if(res.src == self.props.userInfo.id){
+                    return panel.id == res.des
+                }
+                if(res.src==undefined||res.des==undefined){
+                    return panel.id == undefined
+                }
+
+            })
+            let panelsCpy = JSON.parse(JSON.stringify(panels))
+            panelsCpy[index].chatDetails.push(res)
+            self.setState({
+                panels:panelsCpy
+            })
+
+            setTimeout(()=>{
+                console.log(self._scrollRef);
+                self._scrollRef.scrollToBottom()
+                // self._scrollRef.scrollTop = 0
+            },200)
+
+
+        })
     }
 
 
     /*return chatroom*/
-    createRoom(username,avater,nickname){
+    createRoom(username,avater,nickname, id){
         let self = this
         return {
             name:username,
+            id:id,
             chatInfo: {
                 avater: avater,
                 nickname: nickname,
@@ -81,16 +122,6 @@ class ChatRoom extends Component{
             },
             chatDetails: [
                 // {des:4,avater:peopleImg,src:5,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
-                // {des:5,avater:peopleImg,src:4,msg:"你好2！"},
             ]
         }
     }
@@ -117,16 +148,16 @@ class ChatRoom extends Component{
 
     nowUser(uname){
         let self = this
-        let npanel;
-        self.state.panels.forEach(panel=>{
+        let nIndex;
+        self.state.panels.forEach((panel,index)=>{
             if(panel.name == uname){
-                npanel = panel
+                nIndex = index
                 return
             }
         })
         self.setState({
             nowUserName:uname,
-            nowChatUser:npanel
+            nowChatUserIndex:nIndex
         })
     }
 
@@ -171,7 +202,11 @@ class ChatRoom extends Component{
 
     editHandleChange(e){
         let self = this
-        this.setState({html: e.target.value});
+        this.setState({
+            html:e.target.value
+        },()=>{
+
+        });
     }
 
     /*发送消息*/
@@ -192,18 +227,40 @@ class ChatRoom extends Component{
 
     handleSubmit(){
         let self = this
+        let data = self.combineMsg(),
+            {socket} = this.state
 
         self.setState({
-            html:""
+            html:null
         },()=>{
+            // debugger
             /*接口操作*/
+            console.log("send msg");
+            socket.emit('send msg', data)
         })
+    }
+
+    /*组装数据*/
+    /*发送信息*/
+    combineMsg(){
+        // {des:4,avater:peopleImg,src:5,msg:"你好2！"},
+        let self = this
+        let { panels } = self.state
+        let { nowChatUserIndex } = self.state
+        return {
+            'des':self.props.userInfo.id,
+            'avater':self.props.userInfo.avater,
+            'src':panels[nowChatUserIndex].id,
+            'msg':self.state.html,
+            'targetName':panels[nowChatUserIndex].name
+        }
+
     }
 
     getFocusToEdit(){
         let self = this
-        // console.log(self.contentEditable.current);
-        self.contentEditable.current.focus()
+        // console.log(self.contentEditDiv);
+        self.contentEditDiv.handleFocus()
     }
 
     panelsHasUser(uname){
@@ -232,7 +289,7 @@ class ChatRoom extends Component{
             panels.unshift(panels.splice(pIndex,1)[0])//移至开头
         }else{
             /*聊天框内没有用户*/
-            panels.splice(0,0,self.createRoom(user.username, user.avater, user.nickname))
+            panels.splice(0,0,self.createRoom(user.username, user.avater, user.nickname,user.id))
 
         }
 
@@ -250,9 +307,10 @@ class ChatRoom extends Component{
 
         self.nowUser(panel.name)
         //当前聊天的用户
-        self.setState({
-            nowChatUser:panel
-        })
+        // self.setState({
+        //     nowChatUserIndex:index
+        // })
+
     }
 
     render(){
@@ -261,9 +319,8 @@ class ChatRoom extends Component{
         const { isnotSearch } = this.state
         const { searchUserList } = this.state
         const { nowUserName } = this.state
-        const { nowChatUser } = this.state
+        const { nowChatUserIndex } = this.state
         let self = this
-
 
         return (
             <div className="chat-main">
@@ -348,14 +405,16 @@ class ChatRoom extends Component{
                     {/*头部*/}
                     <div className="chatarea-hd">
                         <div className="chatarea-title">
-                            <a href="javascript:;">聊天室</a>
+                            <a href="javascript:;">{nowUserName}</a>
                         </div>
                     </div>
                     {/*收件区域*/}
                     <div className="chatarea-main">
-                        <PerfectScrollbar>
-                            {(nowChatUser&&nowChatUser.chatDetails)?nowChatUser.chatDetails.map((record,index)=>{
-                                if(record.des == self.props.userInfo.id){
+                        <Scrollbars
+                            ref={(ref)=>{this._scrollRef = ref}}
+                        >
+                            {(panels[nowChatUserIndex]&&panels[nowChatUserIndex].chatDetails)?panels[nowChatUserIndex].chatDetails.map((record,index)=>{
+                                if(record.des != self.props.userInfo.id){
                                     return (
                                         <div key={index} className="clearfix msg">
                                             <div className="send-msg-box msg-box clearfix">
@@ -386,7 +445,7 @@ class ChatRoom extends Component{
                                     )
                                 }
                             }):""}
-                        </PerfectScrollbar>
+                        </Scrollbars>
 
                         {/*靠rec 和 send标识收发消息*/}
 
@@ -398,14 +457,22 @@ class ChatRoom extends Component{
 
                         <div className="fd-edit" onClick={()=>this.getFocusToEdit()}>
                             <PerfectScrollbar>
-                                <div className="edit-area"
-                                     contentEditable="true"
-                                     dangerouslySetInnerHTML={{__html:this.state.html}}
-                                     ref={this.contentEditable}
-                                     onInput={(e)=>this.editHandleChange(e)}
-                                     onKeyDown={(e)=>this.handleInputSubmit(e)}
+                                {/*<div className="edit-area"*/}
+                                {/*contentEditable="true"*/}
+                                {/*dangerouslySetInnerHTML={{__html:this.state.html}}*/}
+                                {/*ref={this.contentEditable}*/}
+                                {/*onInput={(e)=>this.editHandleChange(e)}*/}
+                                {/*onKeyDown={(e)=>this.handleInputSubmit(e)}*/}
+                                {/*>*/}
+                                {/*</div>*/}
+                                <ContentEditDiv
+                                    ref={(ref)=>{ this.contentEditDiv = ref }}
+                                    html={this.state.html}
+                                    onChange={(e)=>this.editHandleChange(e)}
+                                    submit={()=>{this.handleSubmit()}}
                                 >
-                                </div>
+
+                                </ContentEditDiv>
                             </PerfectScrollbar>
                         </div>
 

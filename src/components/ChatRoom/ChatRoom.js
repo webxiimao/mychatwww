@@ -1,6 +1,6 @@
 import React,{Component} from "react"
 import {withRouter} from "react-router-dom"
-import { Icon, Input, Row, Col, Button, Tooltip } from "antd"
+import { Icon, Input, Row, Col, Button, Tooltip, Popover } from "antd"
 import ChatRoomScss from "./ChatRoom.scss"
 import {post,get,getUrl} from "server/http";
 import api from "server/api"
@@ -92,14 +92,22 @@ class ChatRoom extends Component{
 
             })
             let panelsCpy = JSON.parse(JSON.stringify(panels))
-            panelsCpy[index].chatDetails.push(res)
+            if(panelsCpy[index]){
+                panelsCpy[index].chatDetails.push(res)
+
+            }else{
+                let p = self.createRoom(res.desName,res.avater,res.desNickname,res.des)
+                p.chatDetails.push(res)
+                panelsCpy.push(p)
+            }
+
             self.setState({
                 panels:panelsCpy
             })
 
+            /*滚动条置底*/
             setTimeout(()=>{
                 self._scrollRef.scrollToBottom()
-                // self._scrollRef.scrollTop = 0
             },200)
 
 
@@ -250,7 +258,9 @@ class ChatRoom extends Component{
             'avater':self.props.userInfo.avater,
             'src':panels[nowChatUserIndex].id,
             'msg':self.state.html,
-            'targetName':panels[nowChatUserIndex].name
+            'targetName':panels[nowChatUserIndex].name,
+            'desName':self.props.userInfo.username,
+            'desNickname':self.props.userInfo.nickname
         }
 
     }
@@ -319,6 +329,22 @@ class ChatRoom extends Component{
         const { nowUserName } = this.state
         const { nowChatUserIndex } = this.state
         let self = this
+
+
+        const content = (nickname,uname,avater) => {
+            return (
+                <div className="pop-info clearfix">
+                    <div className='pop-info-n'>
+                        <p className="pop-info-nickname">{nickname}</p>
+                        <p className="pop-info-name">用户名:{uname}</p>
+                    </div>
+                    <div className="pop-info-avater">
+                        <img src={avater} alt=""/>
+                    </div>
+
+                </div>
+            )
+        }
 
         return (
             <div className="chat-main">
@@ -416,9 +442,11 @@ class ChatRoom extends Component{
                                     return (
                                         <div key={index} className="clearfix msg">
                                             <div className="send-msg-box msg-box clearfix">
-                                                <div className="panel-avater">
-                                                    <img src={record.avater} alt=""/>
-                                                </div>
+                                                <Popover placement="bottomRight" content={content(record.desNickname,record.desName,record.avater)} trigger="click">
+                                                    <div className="panel-avater">
+                                                        <img src={record.avater} alt=""/>
+                                                    </div>
+                                                </Popover>
                                                 {/*</Tooltip>*/}
                                                 <div className="right-msg panel-msg">
                                                     {record.msg}
@@ -430,9 +458,11 @@ class ChatRoom extends Component{
                                     return(
                                         <div key={index} className="clearfix msg">
                                             <div className="rec-msg-box msg-box clearfix">
-                                                <div className="panel-avater">
-                                                    <img src={record.avater} alt=""/>
-                                                </div>
+                                                <Popover placement="bottomRight" content={content(record.desNickname,record.desName,record.avater)} trigger="click">
+                                                    <div className="panel-avater">
+                                                        <img src={record.avater} alt=""/>
+                                                    </div>
+                                                </Popover>
                                                 {/*</Tooltip>*/}
                                                 <div className="left-msg panel-msg">
                                                     {record.msg}

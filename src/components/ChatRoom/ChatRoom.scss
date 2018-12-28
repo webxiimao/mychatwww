@@ -237,3 +237,27 @@
   -webkit-border-radius: 3px;
   margin: 0 10px;
 }
+
+.pop-info{
+  .pop-info-n{
+    float: left;
+    margin-right: 30px;
+    .pop-info-nickname{
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .pop-info-name{
+
+    }
+  }
+
+  .pop-info-avater{
+    float: right;
+    width: 60px;
+    height: 60px;
+    border-radius: 4px;
+    img {
+      width: 100%;
+    }
+  }
+}

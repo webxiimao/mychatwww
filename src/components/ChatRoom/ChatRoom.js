@@ -442,7 +442,7 @@ class ChatRoom extends Component{
                                     return (
                                         <div key={index} className="clearfix msg">
                                             <div className="send-msg-box msg-box clearfix">
-                                                <Popover placement="bottomRight" content={content(record.desNickname,record.desName,record.avater)} trigger="click">
+                                                <Popover placement="bottomLeft" content={content(record.desNickname,record.desName,record.avater)} trigger="click">
                                                     <div className="panel-avater">
                                                         <img src={record.avater} alt=""/>
                                                     </div>
